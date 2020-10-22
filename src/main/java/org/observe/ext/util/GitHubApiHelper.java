@@ -199,6 +199,9 @@ public class GitHubApiHelper {
 			jarFile = jarFile.getParent();
 		}
 		if (jarFile == null) {
+			if (afterCheck != null) {
+				afterCheck.run();
+			}
 			return false;
 		}
 		File javaJarFile = new File(jarFile.getPath());
