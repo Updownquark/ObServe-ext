@@ -53,7 +53,7 @@ public class QuarkVersionUpdater {
 		}
 		newVersion.delete();
 		try {
-			new ProcessBuilder("java", "-jar", args[0]).start();
+			new ProcessBuilder("java", "-Dshow.app.version=true", "-jar", args[0]).start();
 		} catch (IOException e) {
 			e.printStackTrace();
 			JOptionPane.showMessageDialog(null, "Could not restart " + args[0], "Could not restart app", JOptionPane.ERROR_MESSAGE);
