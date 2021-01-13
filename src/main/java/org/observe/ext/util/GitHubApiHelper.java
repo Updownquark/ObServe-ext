@@ -53,10 +53,25 @@ public class GitHubApiHelper {
 	private String theGitHubUrl = "https://api.github.com/";
 	private String theRepositoryOwner;
 	private String theRepository;
+	private Pattern theTagPattern;
 
 	public GitHubApiHelper(String repoOwner, String repoName) {
 		theRepositoryOwner = repoOwner;
 		theRepository = repoName;
+	}
+
+	public Pattern getLabelPattern() {
+		return theTagPattern;
+	}
+
+	public GitHubApiHelper setTagPattern(Pattern tagPattern) {
+		theTagPattern = tagPattern;
+		return this;
+	}
+
+	public GitHubApiHelper withTagPattern(String tagPattern) {
+		theTagPattern = Pattern.compile(tagPattern);
+		return this;
 	}
 
 	public List<Release> getReleases() throws IOException {
@@ -106,7 +121,9 @@ public class GitHubApiHelper {
 
 					property = json.getNextProperty();
 				}
-				releases.add(new Release(name, tagName, htmlUrl, desc, date, draft, preRelease, QommonsUtils.unmodifiableCopy(assets)));
+				if (theTagPattern == null && theTagPattern.matcher(tagName).matches()) {
+					releases.add(new Release(name, tagName, htmlUrl, desc, date, draft, preRelease, QommonsUtils.unmodifiableCopy(assets)));
+				}
 			}
 			return releases;
 		} catch (SAJParser.ParseException | java.text.ParseException e) {
@@ -181,7 +198,7 @@ public class GitHubApiHelper {
 		return currentVersion;
 	}
 
-	public static final Pattern VERSION_PATTERN = Pattern.compile("v?([0-9]+)\\.([0-9]+)\\.([0-9]+)");
+	public static final Pattern VERSION_PATTERN = Pattern.compile(".*v?([0-9]+)\\.([0-9]+)\\.([0-9]+)");
 
 	public boolean checkForNewVersion(Class<?> clazz, String title, Image image, Function<Release, Boolean> check,
 			Consumer<Release> upgradeRejected, Runnable afterCheck) throws IllegalStateException, IOException {
