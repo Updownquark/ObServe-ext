@@ -121,7 +121,7 @@ public class GitHubApiHelper {
 
 					property = json.getNextProperty();
 				}
-				if (theTagPattern == null && theTagPattern.matcher(tagName).matches()) {
+				if (theTagPattern != null && theTagPattern.matcher(tagName).matches()) {
 					releases.add(new Release(name, tagName, htmlUrl, desc, date, draft, preRelease, QommonsUtils.unmodifiableCopy(assets)));
 				}
 			}
