@@ -4,7 +4,6 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,44 +18,52 @@ import java.util.zip.ZipOutputStream;
 
 import javax.swing.JOptionPane;
 
+import com.google.common.io.Files;
+
 public class QuarkVersionUpdater {
+	private static final long MAX_DELAY_TIME = 5000;
+
 	private static final String UPDATER_MANIFEST = "Manifest-Version: 1.0"//
 			+ "\nMain-Class: " + QuarkVersionUpdater.class.getName()//
 			+ "\nClass-Path: ." //
 			+ "\n";
 
 	public static void main(String... args) {
-		long [] lastDelay=new long[]{System.currentTimeMillis()};
-		Thread delay=new Thread(()->{
-			try{
-				int read=System.in.read();
-				while(read>=0){
-					lastDelay[0]=System.currentTimeMillis();
-					read=System.in.read();
-				}
-			} catch(IOException e){
-			}
-		}, QuarkVersionUpdater.class.getSimpleName()+" Delay");
-		delay.setDaemon(true);
-		delay.start();
-		
-		while(System.currentTimeMillis()-lastDelay[0]<250){}
-		
 		File oldVersion = new File(args[0]);
 		File newVersion = new File(args[1]);
-		try {
-			copy(new FileInputStream(newVersion), oldVersion);
-		} catch (IOException e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, "Version copy failed!", "Could not update " + args[0], JOptionPane.ERROR_MESSAGE);
-			return;
-		}
-		newVersion.delete();
-		try {
-			new ProcessBuilder("java", "-Dshow.app.version=true", "-jar", args[0]).start();
-		} catch (IOException e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, "Could not restart " + args[0], "Could not restart app", JOptionPane.ERROR_MESSAGE);
+		long start = System.currentTimeMillis();
+		IOException ex = null;
+		boolean success = false;
+		do {
+			if (!oldVersion.exists() || oldVersion.delete()) {
+				try {
+					Files.move(newVersion, oldVersion);
+					success = true;
+				} catch (IOException e) {
+					ex = e;
+				}
+			}
+		} while (!success && System.currentTimeMillis() - start < MAX_DELAY_TIME);
+		if (success) {
+			try {
+				new ProcessBuilder("java", "-Dshow.app.version=true", "-jar", args[0]).start();
+			} catch (IOException e) {
+				e.printStackTrace();
+				JOptionPane.showMessageDialog(null, "Could not restart " + args[0], "Could not restart app", JOptionPane.ERROR_MESSAGE);
+			}
+		} else {
+			if (ex != null) {
+				ex.printStackTrace();
+			}
+			StringBuilder msg = new StringBuilder();
+			msg.append("Unable to replace the application with updated version.<br>");
+			if (oldVersion.exists()) {
+				msg.append("Please delete ").append(oldVersion.getAbsolutePath()).append("\n and then ");
+			} else {
+				msg.append("Please ");
+			}
+			msg.append("rename ").append(newVersion.getAbsolutePath()).append(" to ").append(oldVersion.getName());
+			JOptionPane.showMessageDialog(null, "Update partial failure", msg.toString(), JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
