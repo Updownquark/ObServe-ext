@@ -121,7 +121,7 @@ public class GitHubApiHelper {
 
 					property = json.getNextProperty();
 				}
-				if (theTagPattern != null && theTagPattern.matcher(tagName).matches()) {
+				if (theTagPattern == null || theTagPattern.matcher(tagName).matches()) {
 					releases.add(new Release(name, tagName, htmlUrl, desc, date, draft, preRelease, QommonsUtils.unmodifiableCopy(assets)));
 				}
 			}
@@ -348,7 +348,7 @@ public class GitHubApiHelper {
 
 	private void doUpgrade(String assetUrl, File jarFile, JProgressBar progress, ObservableValue<Boolean> canceled) throws IOException {
 		File newVersion = new File(jarFile.getAbsoluteFile().getParentFile(),
-				jarFile.getName().substring(0, jarFile.getName().length() - 4) + ".new.jar");
+			jarFile.getName().substring(0, jarFile.getName().length() - 4) + ".updated.jar");
 		HttpsURLConnection connection = (HttpsURLConnection) new URL(assetUrl).openConnection();
 		boolean redirect;
 		do {
@@ -363,6 +363,7 @@ public class GitHubApiHelper {
 			}
 		} while (redirect);
 		int length = connection.getContentLength();
+		long lastMod = connection.getLastModified();
 		EventQueue.invokeLater(() -> {
 			progress.setMaximum(length);
 			progress.setIndeterminate(false);
@@ -382,6 +383,9 @@ public class GitHubApiHelper {
 				}
 				read = in.read(buffer);
 			}
+		}
+		if (lastMod > 0) {
+			newVersion.setLastModified(lastMod);
 		}
 		EventQueue.invokeLater(() -> {
 			progress.setString("Preparing to install new release");
