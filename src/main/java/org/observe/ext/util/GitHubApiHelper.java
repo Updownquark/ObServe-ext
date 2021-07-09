@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,7 +43,9 @@ import org.qommons.json.JsonSerialReader.StructState;
 import org.qommons.json.SAJParser;
 import org.qommons.threading.QommonsTimer;
 
+/** A class to pull information about published releases for a repository from GitHub */
 public class GitHubApiHelper {
+	/** The date format used by GitHub */
 	public static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = ThreadLocal.withInitial(() -> {
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		format.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -55,25 +57,44 @@ public class GitHubApiHelper {
 	private String theRepository;
 	private Pattern theTagPattern;
 
+	/**
+	 * @param repoOwner The user name of the owner of the repository
+	 * @param repoName The name of the repository
+	 */
 	public GitHubApiHelper(String repoOwner, String repoName) {
 		theRepositoryOwner = repoOwner;
 		theRepository = repoName;
 	}
 
-	public Pattern getLabelPattern() {
+	/** @return A pattern matcher to filter releases by tag name */
+	public Pattern getTagPattern() {
 		return theTagPattern;
 	}
 
+	/**
+	 * @param tagPattern A pattern matcher to filter releases by tag name
+	 * @return This helper
+	 */
 	public GitHubApiHelper setTagPattern(Pattern tagPattern) {
 		theTagPattern = tagPattern;
 		return this;
 	}
 
+	/**
+	 * @param tagPattern A pattern matcher to filter releases by tag name
+	 * @return This helper
+	 */
 	public GitHubApiHelper withTagPattern(String tagPattern) {
 		theTagPattern = Pattern.compile(tagPattern);
 		return this;
 	}
 
+	/**
+	 * Contacts the GitHub API for all published releases of the configured application
+	 * 
+	 * @return The releases available for the configured application
+	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
+	 */
 	public List<Release> getReleases() throws IOException {
 		String url = theGitHubUrl;
 		url = append(url, "repos/") + theRepositoryOwner + "/" + theRepository + "/releases";
@@ -131,6 +152,11 @@ public class GitHubApiHelper {
 		}
 	}
 
+	/**
+	 * @param clazz The class representing the application
+	 * @return The latest published release for the application
+	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
+	 */
 	public Release getLatestRelease(Class<?> clazz) throws IOException {
 		String currentVersion = getCurrentRelease(clazz);
 		boolean preRelease = currentVersion != null && currentVersion.startsWith("0.");
@@ -184,6 +210,11 @@ public class GitHubApiHelper {
 		json.endArray(state);
 	}
 
+	/**
+	 * @param clazz The class representing the application
+	 * @return The {@link Package#getImplementationVersion() implementation version} of the {@link Class#getPackage() package} the class
+	 *         belongs to, if configured. This information is typically present in the jar manifest
+	 */
 	public static String getCurrentRelease(Class<?> clazz) {
 		Package pkg = clazz.getPackage();
 		String currentVersion = null;
@@ -198,19 +229,38 @@ public class GitHubApiHelper {
 		return currentVersion;
 	}
 
+	/** Pattern matcher for tag names of releases that represent version upgrades */
 	public static final Pattern VERSION_PATTERN = Pattern.compile(".*v?([0-9]+)\\.([0-9]+)\\.([0-9]+)");
 
-	public boolean checkForNewVersion(Class<?> clazz, String title, Image image, Function<Release, Boolean> check,
-			Consumer<Release> upgradeRejected, Runnable afterCheck) throws IllegalStateException, IOException {
+	/**
+	 * @param clazz The class representing the application
+	 * @param title The title for the upgrade dialog if a new version is available
+	 * @param image The image for the upgrade dialog if a new version is available
+	 * @param check A filter to apply to the releases
+	 * @param upgradeRejected Code to run if the user chooses NOT to upgrade to the latest release
+	 * @param afterCheck Code to run if there is no updated release or the user chooses not to upgrade
+	 * @return true if this method was able to compare the current and latest releases, regardless of whether latest was more recent than
+	 *         the current or whether the user chose to upgrade
+	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
+	 */
+	public boolean checkForNewVersion(Class<?> clazz, String title, Image image, Predicate<Release> check,
+		Consumer<Release> upgradeRejected, Runnable afterCheck) throws IOException {
 		return _upgrade(clazz, title, image, check, upgradeRejected, afterCheck, true);
 	}
 
-	public void upgradeToLatest(Class<?> clazz, String title, Image image) throws IllegalStateException, IOException {
+	/**
+	 * 
+	 * @param clazz The class representing the application
+	 * @param title The title for the upgrade dialog
+	 * @param image The image for the upgrade dialog
+	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
+	 */
+	public void upgradeToLatest(Class<?> clazz, String title, Image image) throws IOException {
 		_upgrade(clazz, title, image, null, null, null, false);
 	}
 
-	boolean _upgrade(Class<?> clazz, String title, Image image, Function<Release, Boolean> check, Consumer<Release> upgradeRejected,
-			Runnable afterCheck, boolean askUser) throws IllegalStateException, IOException {
+	boolean _upgrade(Class<?> clazz, String title, Image image, Predicate<Release> check, Consumer<Release> upgradeRejected,
+		Runnable afterCheck, boolean askUser) throws IOException {
 		BetterFile jarFile = FileUtils.getClassFile(clazz);
 		while (jarFile != null && !jarFile.getName().toLowerCase().endsWith(".jar")) {
 			jarFile = jarFile.getParent();
@@ -270,7 +320,7 @@ public class GitHubApiHelper {
 			if (comp >= 0) {
 				return true;
 			}
-			if (check != null && !check.apply(latest)) {
+			if (check != null && !check.test(latest)) {
 				return true;
 			}
 			SettableValue<Boolean> hasChosen = SettableValue.build(boolean.class).withValue(!askUser).safe(false).build();
@@ -346,7 +396,8 @@ public class GitHubApiHelper {
 		}
 	}
 
-	private void doUpgrade(String assetUrl, File jarFile, JProgressBar progress, ObservableValue<Boolean> canceled) throws IOException {
+	private static void doUpgrade(String assetUrl, File jarFile, JProgressBar progress, ObservableValue<Boolean> canceled)
+		throws IOException {
 		File newVersion = new File(jarFile.getAbsoluteFile().getParentFile(),
 			jarFile.getName().substring(0, jarFile.getName().length() - 4) + ".updated.jar");
 		HttpsURLConnection connection = (HttpsURLConnection) new URL(assetUrl).openConnection();
@@ -394,6 +445,7 @@ public class GitHubApiHelper {
 		QuarkVersionUpdater.update(jarFile, newVersion);
 	}
 
+	/** Represents a release of a software application */
 	public static class Release {
 		private final String theName;
 		private final String theTagName;
@@ -416,34 +468,42 @@ public class GitHubApiHelper {
 			theAssets = assets;
 		}
 
+		/** @return The name of the release, i.e. its title */
 		public String getName() {
 			return theName;
 		}
 
+		/** @return The name of the tag marking the release--typically a version */
 		public String getTagName() {
 			return theTagName;
 		}
 
+		/** @return The URL for the web page of the release */
 		public String getHtmlUrl() {
 			return theHtmlUrl;
 		}
 
+		/** @return The description of the release */
 		public String getDescription() {
 			return theDescription;
 		}
 
+		/** @return The time the release was published */
 		public Instant getPublishedDate() {
 			return thePublishedDate;
 		}
 
+		/** @return Whether the release is just a draft */
 		public boolean isDraft() {
 			return isDraft;
 		}
 
+		/** @return Whether the release is marked as a pre-release */
 		public boolean isPreRelease() {
 			return isPreRelease;
 		}
 
+		/** @return The {@link Asset asset}s associated with the release */
 		public List<Asset> getAssets() {
 			return theAssets;
 		}
@@ -454,6 +514,7 @@ public class GitHubApiHelper {
 		}
 	}
 
+	/** An asset associated with a release */
 	public static class Asset {
 		private final String theName;
 		private final String theApiUrl;
@@ -465,14 +526,17 @@ public class GitHubApiHelper {
 			theDescription = description;
 		}
 
+		/** @return The file name of the asset */
 		public String getName() {
 			return theName;
 		}
 
+		/** @return The URL at which to download the content of the asset */
 		public String getApiUrl() {
 			return theApiUrl;
 		}
 
+		/** @return A description of the asset */
 		public String getDescription() {
 			return theDescription;
 		}

@@ -1,7 +1,5 @@
 package org.observe.ext.util;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,6 +9,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -18,8 +17,7 @@ import java.util.zip.ZipOutputStream;
 
 import javax.swing.JOptionPane;
 
-import com.google.common.io.Files;
-
+/** A class that assists an app in upgrading itself to a newer version */
 public class QuarkVersionUpdater {
 	private static final long MAX_DELAY_TIME = 5000;
 
@@ -28,6 +26,19 @@ public class QuarkVersionUpdater {
 			+ "\nClass-Path: ." //
 			+ "\n";
 
+	/**
+	 * Main method. Invoked by this class (from another process) to do the upgrade and start the new version of the app.
+	 * 
+	 * This method deletes the old version of the jar, renames the updated version of the jar to the name of the old version, and invokes
+	 * the updated jar with an environment variable "show.app.version"=true so the app can optionally show its Help->About dialog on
+	 * startup.
+	 * 
+	 * @param args Command line args:
+	 *        <ol>
+	 *        <li>The path to the jar which is the old version of the app</li>
+	 *        <li>The path to the jar which is the new version of the app</li>
+	 *        </ol>
+	 */
 	public static void main(String... args) {
 		File oldVersion = new File(args[0]);
 		File newVersion = new File(args[1]);
@@ -37,7 +48,7 @@ public class QuarkVersionUpdater {
 		do {
 			if (!oldVersion.exists() || oldVersion.delete()) {
 				try {
-					Files.move(newVersion, oldVersion);
+					Files.move(newVersion.toPath(), oldVersion.toPath());
 					success = true;
 				} catch (IOException e) {
 					ex = e;
@@ -67,7 +78,14 @@ public class QuarkVersionUpdater {
 		}
 	}
 
-	public static void update(File jarFile, File updatedJarFile) throws IOException, IllegalStateException {
+	/**
+	 * Invoked by an application to update itself
+	 * 
+	 * @param jarFile The jar file of the application that is currently running
+	 * @param updatedJarFile The jar file that is the updated application, presumably obtained from a published source
+	 * @throws IOException If preparations to upgrade could not be made
+	 */
+	public static void update(File jarFile, File updatedJarFile) throws IOException {
 		// Extract this class into a standalone class file
 		File standalone = new File(jarFile.getParentFile(), QuarkVersionUpdater.class.getSimpleName() + ".jar");
 		String classFileName = QuarkVersionUpdater.class.getName();
@@ -115,6 +133,11 @@ public class QuarkVersionUpdater {
 		System.exit(0);
 	}
 
+	/**
+	 * Deletes the updater jar, if it exists
+	 * 
+	 * @param jarFile The jar file of the app that may have been updated
+	 */
 	public static void deleteUpdater(File jarFile) {
 		File standalone = new File(jarFile.getParentFile(), QuarkVersionUpdater.class.getSimpleName() + ".jar");
 		if (standalone.exists()) {
@@ -122,14 +145,7 @@ public class QuarkVersionUpdater {
 		}
 	}
 
-	public static void copy(InputStream in, File target) throws IOException {
-		try (BufferedInputStream bufferedIn = new BufferedInputStream(in); //
-				OutputStream out = new BufferedOutputStream(new FileOutputStream(target))) {
-			copy(bufferedIn, out);
-		}
-	}
-
-	static void copy(InputStream in, OutputStream out) throws IOException {
+	private static void copy(InputStream in, OutputStream out) throws IOException {
 		byte[] buffer = new byte[64 * 1028];
 		int read = in.read(buffer);
 		while (read >= 0) {
