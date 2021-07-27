@@ -34,6 +34,7 @@ import org.observe.SettableValue;
 import org.observe.util.swing.JustifiedBoxLayout;
 import org.observe.util.swing.WindowPopulation;
 import org.qommons.QommonsUtils;
+import org.qommons.QuarkVersionUpdater;
 import org.qommons.io.BetterFile;
 import org.qommons.io.FileUtils;
 import org.qommons.io.Format;
@@ -442,7 +443,7 @@ public class GitHubApiHelper {
 			progress.setString("Preparing to install new release");
 			progress.setIndeterminate(true);
 		});
-		QuarkVersionUpdater.update(jarFile, newVersion);
+		new QuarkVersionUpdater().update(jarFile, newVersion);
 	}
 
 	/** Represents a release of a software application */
