@@ -377,6 +377,8 @@ public class GitHubApiHelper {
 					}
 				});
 			});
+			frame[0].requestFocus();
+			frame[0].setAlwaysOnTop(true);
 			frame[0].addComponentListener(new ComponentAdapter() {
 				@Override
 				public void componentHidden(ComponentEvent e) {
