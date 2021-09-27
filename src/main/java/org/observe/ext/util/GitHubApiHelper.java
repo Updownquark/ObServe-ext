@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -35,6 +34,7 @@ import org.observe.util.swing.JustifiedBoxLayout;
 import org.observe.util.swing.WindowPopulation;
 import org.qommons.QommonsUtils;
 import org.qommons.QuarkVersionUpdater;
+import org.qommons.Version;
 import org.qommons.io.BetterFile;
 import org.qommons.io.FileUtils;
 import org.qommons.io.Format;
@@ -168,7 +168,7 @@ public class GitHubApiHelper {
 			} else if (!preRelease && r.isPreRelease) {
 				continue;
 			}
-			if (!VERSION_PATTERN.matcher(r.getTagName()).matches()) {
+			if (!Version.VERSION_PATTERN.matcher(r.getTagName()).matches()) {
 				continue;
 			}
 			if (r.getAssets().isEmpty()) {
@@ -230,9 +230,6 @@ public class GitHubApiHelper {
 		return currentVersion;
 	}
 
-	/** Pattern matcher for tag names of releases that represent version upgrades */
-	public static final Pattern VERSION_PATTERN = Pattern.compile(".*v?([0-9]+)\\.([0-9]+)\\.([0-9]+)");
-
 	/**
 	 * @param clazz The class representing the application
 	 * @param title The title for the upgrade dialog if a new version is available
@@ -279,24 +276,24 @@ public class GitHubApiHelper {
 			if (currentVersion == null) {
 				return false;
 			}
-			Matcher cvMatcher = VERSION_PATTERN.matcher(currentVersion);
-			if (!cvMatcher.matches()) {
+			if (!Version.VERSION_PATTERN.matcher(currentVersion).matches()) {
 				return false;
 			}
+			Version cv = Version.parse(currentVersion);
 			List<Release> releases = getReleases();
 			Release latest = null;
 			Asset asset = null;
-			Matcher rv = null;
+			Version rv = null;
 			for (Release r : releases) {
 				if (r.isDraft) {
 					continue;
 				} else if (!currentVersion.startsWith("0.") && r.isPreRelease) {
 					continue;
 				}
-				rv = VERSION_PATTERN.matcher(r.getTagName());
-				if (!rv.matches()) {
+				if (!Version.VERSION_PATTERN.matcher(r.getTagName()).matches()) {
 					continue;
 				}
+				rv = Version.parse(r.getTagName());
 				for (Asset a : r.getAssets()) {
 					if (a.getName().endsWith(".jar")) {
 						asset = a;
@@ -311,13 +308,7 @@ public class GitHubApiHelper {
 			if (latest == null) {
 				return true;
 			}
-			int comp = Integer.compare(Integer.parseInt(cvMatcher.group(1)), Integer.parseInt(rv.group(1)));
-			if (comp == 0) {
-				comp = Integer.compare(Integer.parseInt(cvMatcher.group(2)), Integer.parseInt(rv.group(2)));
-			}
-			if (comp == 0) {
-				comp = Integer.compare(Integer.parseInt(cvMatcher.group(3)), Integer.parseInt(rv.group(3)));
-			}
+			int comp = cv.compareTo(rv);
 			if (comp >= 0) {
 				return true;
 			}
