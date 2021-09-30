@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
@@ -320,6 +321,7 @@ public class GitHubApiHelper {
 			String assetUrl = asset.getApiUrl();
 			SettableValue<Boolean> canceled = SettableValue.build(boolean.class).withValue(false).build();
 			JProgressBar progress = new JProgressBar();
+			JButton[] yesButton = new JButton[1];
 			frame[0] = WindowPopulation.populateWindow(new JFrame(), null, true, false)//
 					.withTitle(title).withIcon(image)//
 					.withVContent(content -> {
@@ -334,7 +336,7 @@ public class GitHubApiHelper {
 							buttons.visibleWhen(hasChosen.map(c -> !c));
 							buttons.addButton("Yes", __ -> {
 								hasChosen.set(true, null);
-							}, null);
+						}, btn -> yesButton[0] = btn.getEditor());
 							buttons.addButton("No", __ -> {
 								if (upgradeRejected != null) {
 									upgradeRejected.accept(release);
@@ -369,6 +371,7 @@ public class GitHubApiHelper {
 				});
 			});
 			frame[0].requestFocus();
+			yesButton[0].requestFocus();
 			frame[0].setAlwaysOnTop(true);
 			frame[0].addComponentListener(new ComponentAdapter() {
 				@Override
