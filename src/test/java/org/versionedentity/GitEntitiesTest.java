@@ -71,7 +71,7 @@ public class GitEntitiesTest {
 					changes1.addAll(commit.getChanges());
 				}
 			}, true);
-			BetterSortedMap<Long, QuickMap<String, Object>> existing1 = BetterTreeMap.build(Long::compareTo).safe(false).buildMap();
+			BetterSortedMap<Long, QuickMap<String, Object>> existing1 = BetterTreeMap.build(Long::compareTo).buildMap();
 			CsvEntitySetTest.initSimpleEntitySet(entities1);
 			System.out.println("Populating initial entities");
 			for (int i = 0; i < 20; i++) {
@@ -92,7 +92,7 @@ public class GitEntitiesTest {
 					changes2.addAll(commit.getChanges());
 				}
 			}, true);
-			BetterSortedMap<Long, QuickMap<String, Object>> existing2 = BetterTreeMap.build(Long::compareTo).safe(false).buildMap();
+			BetterSortedMap<Long, QuickMap<String, Object>> existing2 = BetterTreeMap.build(Long::compareTo).buildMap();
 			Assert.assertTrue(entities2.getEntityTypes().isEmpty());
 			System.out.println("Pulling initial entities into entity set 2");
 			entities2.checkAndPush(null);
@@ -112,7 +112,7 @@ public class GitEntitiesTest {
 			QuickMap<String, Object> entity = entities2.getEntityType("test1").create(false)//
 				.with("id", added)//
 				.with("name", "Entity " + added)//
-				.with("values", BetterTreeList.build().safe(false).build()//
+				.with("values", BetterTreeList.build().build()//
 					.with(0, 3, 6, 9, 12, 15));
 			existing2.put(added, entity);
 			Assert.assertFalse(entities2.update("test1", entity, true));
