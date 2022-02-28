@@ -316,7 +316,7 @@ public class GitHubApiHelper {
 			if (check != null && !check.test(latest)) {
 				return true;
 			}
-			SettableValue<Boolean> hasChosen = SettableValue.build(boolean.class).withValue(!askUser).safe(false).build();
+			SettableValue<Boolean> hasChosen = SettableValue.build(boolean.class).withValue(!askUser).onEdt().build();
 			Release release = latest;
 			String assetUrl = asset.getApiUrl();
 			SettableValue<Boolean> canceled = SettableValue.build(boolean.class).withValue(false).build();
