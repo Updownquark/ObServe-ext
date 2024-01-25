@@ -9,7 +9,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.junit.Assert;
 import org.junit.Test;
-import org.observe.util.CsvEntitySetTest;
+import org.observe.util.CsvEntitySetTestUtils;
 import org.observe.util.VersionedEntities.ChangeListener;
 import org.observe.util.VersionedEntities.Commit;
 import org.observe.util.VersionedEntities.EntityUpdate;
@@ -25,7 +25,7 @@ import org.qommons.tree.BetterTreeMap;
 public class GitEntitiesTest {
 	/**
 	 * Ensures the basic CRUD functionality of {@link GitEntities} works
-	 * 
+	 *
 	 * @throws GitAPIException If an error occurs in the Git API
 	 * @throws IOException If an error occurs reading or writing the data
 	 * @throws TextParseException If an error occurs parsing entity data
@@ -41,22 +41,22 @@ public class GitEntitiesTest {
 		// Set up 3 repositories--a master to serve as the remote, and 2 subordinate repos
 		System.out.println("Initializing master repository");
 		Git master = Git.init()//
-			.setDirectory(new File(testDir, "master"))//
-			.call();
+				.setDirectory(new File(testDir, "master"))//
+				.call();
 		master.commit()// Need a commit to create the master branch
-			.setAllowEmpty(true)//
-			.setMessage("Initial commit")//
-			.call();
+		.setAllowEmpty(true)//
+		.setMessage("Initial commit")//
+		.call();
 		System.out.println("Cloning copy1 repository");
 		Git copy1 = Git.cloneRepository()//
-			.setURI(master.getRepository().getDirectory().getParentFile().toURI().toString())//
-			.setDirectory(new File(testDir, "copy1"))//
-			.call();
+				.setURI(master.getRepository().getDirectory().getParentFile().toURI().toString())//
+				.setDirectory(new File(testDir, "copy1"))//
+				.call();
 		System.out.println("Cloning copy2 repository");
 		Git copy2 = Git.cloneRepository()//
-			.setURI(master.getRepository().getDirectory().getParentFile().toURI().toString())//
-			.setDirectory(new File(testDir, "copy2"))//
-			.call();
+				.setURI(master.getRepository().getDirectory().getParentFile().toURI().toString())//
+				.setDirectory(new File(testDir, "copy2"))//
+				.call();
 
 		// Set up a GitEntitySet for one subordinate, initialize, populate, and push it
 		File indexes = new File(testDir, "indexes");
@@ -72,10 +72,10 @@ public class GitEntitiesTest {
 				}
 			}, true);
 			BetterSortedMap<Long, QuickMap<String, Object>> existing1 = BetterTreeMap.build(Long::compareTo).buildMap();
-			CsvEntitySetTest.initSimpleEntitySet(entities1);
+			CsvEntitySetTestUtils.initSimpleEntitySet(entities1);
 			System.out.println("Populating initial entities");
 			for (int i = 0; i < 20; i++) {
-				QuickMap<String, Object> entity = CsvEntitySetTest.addTestEntity(entities1, i);
+				QuickMap<String, Object> entity = CsvEntitySetTestUtils.addTestEntity(entities1, i);
 				existing1.put((Long) entity.get("id"), entity);
 			}
 			System.out.println("Pushing initial entities to master");
@@ -110,10 +110,10 @@ public class GitEntitiesTest {
 			System.out.println("Initial entity modifications");
 			long added = existing2.keySet().last() + 1;
 			QuickMap<String, Object> entity = entities2.getEntityType("test1").create(false)//
-				.with("id", added)//
-				.with("name", "Entity " + added)//
-				.with("values", BetterTreeList.build().build()//
-					.with(0, 3, 6, 9, 12, 15));
+					.with("id", added)//
+					.with("name", "Entity " + added)//
+					.with("values", BetterTreeList.build().build()//
+							.with(0, 3, 6, 9, 12, 15));
 			existing2.put(added, entity);
 			Assert.assertFalse(entities2.update("test1", entity, true));
 			long removed = existing2.keySet().get(existing2.size() / 2);
