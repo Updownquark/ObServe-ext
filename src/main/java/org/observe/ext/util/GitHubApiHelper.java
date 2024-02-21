@@ -4,15 +4,7 @@ import java.awt.EventQueue;
 import java.awt.Image;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
@@ -93,7 +85,7 @@ public class GitHubApiHelper {
 
 	/**
 	 * Contacts the GitHub API for all published releases of the configured application
-	 * 
+	 *
 	 * @return The releases available for the configured application
 	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
 	 */
@@ -243,12 +235,12 @@ public class GitHubApiHelper {
 	 * @throws IOException If GitHub could not be reached or an error occurs reading the data
 	 */
 	public boolean checkForNewVersion(Class<?> clazz, String title, Image image, Predicate<Release> check,
-		Consumer<Release> upgradeRejected, Runnable afterCheck) throws IOException {
+			Consumer<Release> upgradeRejected, Runnable afterCheck) throws IOException {
 		return _upgrade(clazz, title, image, check, upgradeRejected, afterCheck, true);
 	}
 
 	/**
-	 * 
+	 *
 	 * @param clazz The class representing the application
 	 * @param title The title for the upgrade dialog
 	 * @param image The image for the upgrade dialog
@@ -259,7 +251,7 @@ public class GitHubApiHelper {
 	}
 
 	boolean _upgrade(Class<?> clazz, String title, Image image, Predicate<Release> check, Consumer<Release> upgradeRejected,
-		Runnable afterCheck, boolean askUser) throws IOException {
+			Runnable afterCheck, boolean askUser) throws IOException {
 		BetterFile jarFile = FileUtils.getClassFile(clazz);
 		while (jarFile != null && !jarFile.getName().toLowerCase().endsWith(".jar")) {
 			jarFile = jarFile.getParent();
@@ -298,6 +290,7 @@ public class GitHubApiHelper {
 				for (Asset a : r.getAssets()) {
 					if (a.getName().endsWith(".jar")) {
 						asset = a;
+						break;
 					}
 				}
 				if (asset == null) {
@@ -306,7 +299,8 @@ public class GitHubApiHelper {
 				latest = r;
 				break;
 			}
-			if (latest == null) {
+			// If latest!=null, then asset!=null, but I'm suppressing a warning
+			if (latest == null || asset == null) {
 				return true;
 			}
 			int comp = cv.compareTo(rv);
@@ -316,10 +310,10 @@ public class GitHubApiHelper {
 			if (check != null && !check.test(latest)) {
 				return true;
 			}
-			SettableValue<Boolean> hasChosen = SettableValue.build(boolean.class).withValue(!askUser).onEdt().build();
+			SettableValue<Boolean> hasChosen = SettableValue.<Boolean> build().withValue(!askUser).onEdt().build();
 			Release release = latest;
 			String assetUrl = asset.getApiUrl();
-			SettableValue<Boolean> canceled = SettableValue.build(boolean.class).withValue(false).build();
+			SettableValue<Boolean> canceled = SettableValue.<Boolean> build().withValue(false).build();
 			JProgressBar progress = new JProgressBar();
 			JButton[] yesButton = new JButton[1];
 			frame[0] = WindowPopulation.populateWindow(new JFrame(), null, true, false)//
@@ -336,7 +330,7 @@ public class GitHubApiHelper {
 							buttons.visibleWhen(hasChosen.map(c -> !c));
 							buttons.addButton("Yes", __ -> {
 								hasChosen.set(true, null);
-						}, btn -> yesButton[0] = btn.getEditor());
+							}, btn -> yesButton[0] = btn.getEditor());
 							buttons.addButton("No", __ -> {
 								if (upgradeRejected != null) {
 									upgradeRejected.accept(release);
@@ -394,9 +388,9 @@ public class GitHubApiHelper {
 	}
 
 	private static void doUpgrade(String assetUrl, File jarFile, JProgressBar progress, ObservableValue<Boolean> canceled)
-		throws IOException {
+			throws IOException {
 		File newVersion = new File(jarFile.getAbsoluteFile().getParentFile(),
-			jarFile.getName().substring(0, jarFile.getName().length() - 4) + ".updated.jar");
+				jarFile.getName().substring(0, jarFile.getName().length() - 4) + ".updated.jar");
 		HttpsURLConnection connection = (HttpsURLConnection) new URL(assetUrl).openConnection();
 		boolean redirect;
 		do {
