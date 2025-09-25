@@ -1,16 +1,6 @@
 package org.versionedentity;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.RandomAccessFile;
-import java.io.Reader;
+import java.io.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,12 +17,7 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffEntry.ChangeType;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.diff.RawTextComparator;
-import org.eclipse.jgit.lib.BranchTrackingStatus;
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.ObjectLoader;
-import org.eclipse.jgit.lib.ObjectReader;
-import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.merge.MergeStrategy;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.transport.CredentialsProvider;
@@ -138,11 +123,11 @@ public class GitEntities extends VersionedEntities {
 			if (theGit.getRepository().getRefDatabase().findRef(branch) == null) {
 				try {
 					theGit.branchCreate()//
-						// .setUpstreamMode(SetupUpstreamMode.TRACK)//
-						.setName(shortBranch)//
-						.setForce(true)//
-						// .setStartPoint(remoteName + "/" + shortBranch)//
-						.call();
+					// .setUpstreamMode(SetupUpstreamMode.TRACK)//
+					.setName(shortBranch)//
+					.setForce(true)//
+					// .setStartPoint(remoteName + "/" + shortBranch)//
+					.call();
 				} catch (GitAPIException e) {
 					throw new IOException("Could not create branch " + branch, e);
 				}
@@ -206,8 +191,8 @@ public class GitEntities extends VersionedEntities {
 							RevCommit oldHead, newHead;
 							try {
 								LogCommand log = theGit.log()//
-									// .add(previousHead.getObjectId())
-									.add(theGit.getRepository().getRefDatabase().findRef(Constants.HEAD).getObjectId());
+										// .add(previousHead.getObjectId())
+										.add(theGit.getRepository().getRefDatabase().findRef(Constants.HEAD).getObjectId());
 								// for (ObjectId merged : mergeResult.getMergedCommits()) {
 								// log.add(merged);
 								// }
@@ -261,10 +246,10 @@ public class GitEntities extends VersionedEntities {
 		if (status == null || status.getAheadCount() > 0) {
 			try {
 				theGit.push()//
-					.add(head)//
-					.setRemote(remoteName)//
-					.setRefSpecs(new RefSpec(shortBranch + ":" + shortBranch))//
-					.setCredentialsProvider(theCredentials).call();
+				.add(head)//
+				.setRemote(remoteName)//
+				.setRefSpecs(new RefSpec(shortBranch + ":" + shortBranch))//
+				.setCredentialsProvider(theCredentials).call();
 			} catch (GitAPIException e) {
 				throw new IOException("Push failed", e);
 			}
@@ -330,7 +315,7 @@ public class GitEntities extends VersionedEntities {
 		} else if (added) {
 			// Maybe a new entity type?
 			try (Reader reader = new BufferedReader(new FileReader(content))) {
-				CsvParser parser = new CsvParser(reader, ',');
+				CsvParser parser = new CsvParser(reader, ',', content.length());
 				try {
 					String[] header = parser.parseNextLine();
 					EntityFormat format = parseHeader(entityName, header, parser);
@@ -339,7 +324,7 @@ public class GitEntities extends VersionedEntities {
 					boolean preFresh = isFreshBranch;
 					isFreshBranch = true;
 					format = addEntityType(entityName, format.getFields().asJavaMap(),
-						format.getFieldOrder().subList(0, format.getIdFieldCount()));
+							format.getFieldOrder().subList(0, format.getIdFieldCount()));
 					isFreshBranch = preFresh;
 					return format;
 				} catch (TextParseException e) {
@@ -352,10 +337,10 @@ public class GitEntities extends VersionedEntities {
 	}
 
 	private CommitImpl parseCommit(RevCommit commit, CanonicalTreeParser parentTree, CanonicalTreeParser tree, boolean localOnly)
-		throws IOException {
+			throws IOException {
 		CommitterImpl committer = new CommitterImpl(commit.getAuthorIdent().getName());
 		CommitImpl commitImpl = new CommitImpl(committer, commit.getAuthorIdent().getWhen().toInstant(), commit.getFullMessage(),
-			localOnly);
+				localOnly);
 		byte[] buffer = new byte[5 * 1024];
 		class Diff {
 			final DiffEntry entry;
@@ -484,11 +469,11 @@ public class GitEntities extends VersionedEntities {
 	}
 
 	private void parseEdit(EntityFormat entity, String file, File oldFile, File newFile, CommitImpl commit, byte[] buffer, int fileIndex)
-		throws IOException {
+			throws IOException {
 		try (Reader oldReader = new BufferedReader(new InputStreamReader(new FileInputStream(oldFile), UTF8));
-			Reader newReader = new BufferedReader(new InputStreamReader(new FileInputStream(newFile), UTF8))) {
-			CsvParser oldParser = new CsvParser(oldReader, ',');
-			CsvParser newParser = new CsvParser(newReader, ',');
+				Reader newReader = new BufferedReader(new InputStreamReader(new FileInputStream(newFile), UTF8))) {
+			CsvParser oldParser = new CsvParser(oldReader, ',', oldFile.length());
+			CsvParser newParser = new CsvParser(newReader, ',', newFile.length());
 			// Don't diff against headers
 			try {
 				oldParser.parseNextLine();
@@ -536,7 +521,7 @@ public class GitEntities extends VersionedEntities {
 						parseNonIds(entity, line, fields, parser);
 					} catch (TextParseException e) {
 						System.err.println("Could not parse " + (isNew ? "new" : "old") + " entity values: " + entity.getName() + " "
-							+ Arrays.toString(line));
+								+ Arrays.toString(line));
 						e.printStackTrace();
 						return false;
 					}
@@ -575,7 +560,7 @@ public class GitEntities extends VersionedEntities {
 						if (sameId) {
 							if (oldEntry.fillIds().fillNonIds() && newEntry.fillIds().fillNonIds()) {
 								commit.addChange(entity, oldEntry.fields.copy().unmodifiable(), newEntry.fields.copy().unmodifiable(),
-									fileIndex);
+										fileIndex);
 							}
 							oldEntry.readLine();
 							newEntry.readLine();
@@ -625,12 +610,12 @@ public class GitEntities extends VersionedEntities {
 
 	private void fireListeners(Commit commit) {
 		theListeners.forEach(//
-			listener -> {
-				if (commit.isLocalOnly() && listener.remoteOnly) {
-					return;
-				}
-				listener.listener.changeOccurred(commit);
-			});
+				listener -> {
+					if (commit.isLocalOnly() && listener.remoteOnly) {
+						return;
+					}
+					listener.listener.changeOccurred(commit);
+				});
 	}
 
 	@Override
@@ -640,9 +625,9 @@ public class GitEntities extends VersionedEntities {
 		}
 		try {
 			theGit.commit()//
-				.setMessage(message == null ? autoGenMessage() : message)//
-				.setAll(true)//
-				.call();
+			.setMessage(message == null ? autoGenMessage() : message)//
+			.setAll(true)//
+			.call();
 		} catch (GitAPIException e) {
 			throw new IOException("Could not commit changes", e);
 		}
@@ -693,8 +678,8 @@ public class GitEntities extends VersionedEntities {
 			throw new IllegalArgumentException("Unrecognized change level: " + changeLevel + ". Expected 0, 1, 2, or 3");
 		}
 		BranchInfo newBranch = new BranchInfo(//
-			newBranchName == null ? currentBranch.getBranchName() : newBranchName, //
-			version[0], version[1], version[2]);
+				newBranchName == null ? currentBranch.getBranchName() : newBranchName, //
+						version[0], version[1], version[2]);
 		// TODO We should probably check with the remote to see if a branch with this name has already been created
 		// If so, we should throw an exception--schema changes shouldn't be coming from multiple sources at the same time
 		try {
@@ -874,7 +859,7 @@ public class GitEntities extends VersionedEntities {
 		private final int theFileIndex;
 
 		EntityUpdateImpl(CommitImpl commit, EntityFormat entityType, QuickMap<String, Object> oldValues, QuickMap<String, Object> newValues,
-			int fileIndex) {
+				int fileIndex) {
 			theCommit = commit;
 			theEntityType = entityType;
 			theOldValues = oldValues;
